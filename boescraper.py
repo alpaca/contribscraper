@@ -64,9 +64,7 @@ class BOEScraper(object):
 				for td in row.findAll('td'):
 					try:
 						print td['class']
-						#This comparison is not working
-						if td['class'] == "tdReceivedBy":
-							print int(td.find('a')['href'].split('?ID=')[-1])
+						if 'tdReceivedBy' in td['class']:
 							contrib_obj[' '.join(td['class'])] = int(td.find('a')['href'].lower().split('?id=')[-1])
 						else:
 							contrib_obj[' '.join(td['class'])] = td.text.rstrip('\n "\t').lstrip('\n "\t')
