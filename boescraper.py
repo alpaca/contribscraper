@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
-import requests, urllib
+import requests, urllib, sys
 from models import Contributor
+from datetime import datetime
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm.session import sessionmaker
@@ -40,15 +41,21 @@ class BOEScraper(object):
 				yield td.find('a').text, td.find('a')['href']
 		return
 
-	def parse_contrib_page(self):
-		day = 6
-		month = 5
-		year = 2014
+	# [...]
+	# [0] --> scrape(0)
+	# [1] --> scrape(1)
+
+	# [0,1,2,3,4,...]
+
+	def parse_contrib_page(self,from_yr,to_yr,_from_month,_from_day):
+		day = _from_day
+		month = _from_month
+		year = to_yr
 
 		contrib_names_and_links = []
 
-		while year >= 2014:
-			from_day = day - 3
+		while year > from_yr:
+			from_day = day - 2
 			if from_day < 1: from_day = 1
 			url = self.base_url + "ContribListPrint.aspx?LastOnlyNameSearchType=Starts+with&LastOnlyName=&FirstNameSearchType=Starts+with&FirstName=&AddressSearchType=Starts+with&Address=&CitySearchType=Starts+with&City=&State=&Zip=&ZipThru=&ContributionType=All+Types&OccupationSearchType=Starts+with&Occupation=&EmployerSearchType=Starts+with&Employer=&VendorLastOnlyNameSearchType=Starts+with&VendorLastOnlyName=&VendorFirstNameSearchType=Starts+with&VendorFirstName=&VendorAddressSearchType=Starts+with&VendorAddress=&VendorCitySearchType=Starts+with&VendorCity=&VendorState=&VendorZip=&VendorZipThru=&OtherReceiptsDescriptionSearchType=&OtherReceiptsDescription=&PurposeState=Starts+with&Purpose=&Amount=100&AmountThru=" + str(499) + "&RcvDate=" + \
 			urllib.quote('%i/%i/%i' % (month,from_day,year),safe='') + "&RcvDateThru=" + urllib.quote('%i/%i/%i' % (month,day,year),safe='') + "&Archived=false&QueryType=Contrib&LinkedQuery=false&OrderBy=Last+or+Only+Name+-+A+to+Z"
@@ -61,37 +68,57 @@ class BOEScraper(object):
 				if self.debug: print idx
 				contrib_obj = {}
 				for td in row.findAll('td'):
-					if td.get('class'):
+					try:
 						print td['class']
 						contrib_obj[' '.join(td['class'])] = td.text.rstrip('\n "\t').lstrip('\n "\t')
+					except Exception:
+						pass
 				if self.debug: 
 					if contrib_obj != {}: print contrib_obj
 
 				contrib_names_and_links.append(contrib_obj)
-			day = from_day
-			if from_day == 1:
+			day = from_day - 1
+			if from_day <= 1:
 				day = 30
 				month = month - 1
-				if month < 1:
+				if month == 2:
+					day = 28
+				elif month < 1:
 					month = 12
 					year = year - 1
 
 		return contrib_names_and_links
 
 	def scrape_contributors(self):
-		contrib_names_and_links = self.parse_contrib_page()
-		for obj in contrib_names_and_links:
-			if obj:
-				if self.debug: print "got obj."
-				c = Contributor(contributed_by = obj['tdContributedBy'],
-								amount = obj['tdAmount'],
-								received_by = obj['tdReceivedBy'],
-								description = obj['tdDescription'],
-								vendor_name = obj['tdVendorName'],
-								vendor_address = obj['tdVendorAddress'],
-								party=None)
-				self.session.merge(c)
-				self.session.commit()
+		cur_yr = 2014
+		while cur_yr > 2007:
+			from_month = 5 if cur_yr == 2014 else 12
+			from_day = 6 if cur_yr == 2014 else 30
+			contrib_names_and_links = self.parse_contrib_page(from_yr=cur_yr-1, to_yr=cur_yr, _from_month=from_month, _from_day=from_day)
+			for obj in contrib_names_and_links:
+				if obj:
+					try:
+						c = Contributor(contributed_by = obj['tdContributedBy'],
+									amount = obj['tdAmount'],
+									received_by = obj['tdReceivedBy'],
+									description = obj['tdDescription'],
+									vendor_name = obj['tdVendorName'],
+									vendor_address = obj['tdVendorAddress'],
+									contrib_date=None,
+									party=None)
+					except KeyError:
+						if 'tdContributedBy' in obj and 'tdAmount' in obj and 'tdReceivedBy' in obj:
+							c = Contributor(contributed_by=obj['tdContributedBy'],
+											received_by=obj['tdReceivedBy'],
+											amount=obj['tdAmount'],
+											party=None)
+						else:
+							c = None
+					if c:
+						self._fix_contributor(c)
+						self.session.merge(c)
+			cur_yr -= 1
+			self.session.commit()
 		return
 
 	def scrape_contributor_party_aff(self,party):
@@ -104,25 +131,58 @@ class BOEScraper(object):
 
 		links = self.scrape_candidate_links(party)
 
-		contributors = self.session.query(Contributor).all()
+		# contributors = self.session.query(Contributor).all()
 		# print contrib_by_committee_names.keys()
 
 		for comm_name, href_list in self.scrape_candidate_committees(links):
-			if self.debug: print comm_name
-			obj = _is_in(comm_name, contributors)
-			if obj:
-				obj.party = party
-				print obj.party
-				print "ADDED PARTY YAY: %s" % party
-				import pdb; pdb.set_trace()
-				self.session.merge(obj)
-				print obj
-				self.session.commit()
-			# print cand_name + ": " + str(href_list)
+			with open('committees.txt','a') as f:
+				f.write(comm_name + '\t\t' + str(href_list) + '\n')
+			# if self.debug: print comm_name
+			# # obj = _is_in(comm_name, contributors)
+			# for idx,contrib in enumerate(contributors):
+			# 	if self.debug and idx % 10000 == 0: print idx
+			# 	rec_by = contrib.received_by
+			# 	if contrib and rec_by:
+			# 		if comm_name in contrib.received_by:
+			# 			contrib.party = party
+			# 			print contrib.party
+			# 			print "ADDED PARTY YAY: %s" % party
+			# 	# import pdb; pdb.set_trace()
+			# 			self.session.merge(contrib)
+			# 			print contrib
+			# 			self.session.commit()
+			# # print cand_name + ": " + str(href_list)
 		return
+
+	def _fix_contributor(self,c):
+			amnt_date = c.amount
+			chunks = amnt_date.split('.')
+			amnt = chunks[0]
+			cents = chunks[1][:2]
+			amnt = amnt + '.' + cents
+
+			date = chunks[1][2:]
+			c.amount = amnt
+			c.contrib_date = datetime.strptime(date,'%m/%d/%Y')
+			if self.debug: print "Parsed %s into:  %s  and  %s" % (amnt_date,amnt,str(c.contrib_date))
+			return c
+
+	def fix_amnt_and_date(self):
+		contributors = self.session.query(Contributor).all()
+		for c in contributors:
+			c = self._fix_contributor(c)
+			self.session.merge(c)
+		self.session.commit()
 
 ####################
 
-scraper = BOEScraper(db_url='postgresql+psycopg2://postgres:postgres@localhost:5432/alpaca_api_development', debug=True)
-scraper.scrape_contributors()
-scraper.scrape_contributor_party_aff('Democratic')
+if __name__ == "__main__":
+	scraper = BOEScraper(db_url='postgresql+psycopg2://postgres:postgres@localhost:5432/alpaca_api_development', debug=True)
+	if len(sys.argv) != 3:
+		print "usage: python boescraper.py scrape <contributors | party>"
+	elif sys.argv[-1] == 'party':
+		scraper.scrape_contributor_party_aff('Democratic')
+	elif sys.argv[-1] == 'contributors':
+		scraper.scrape_contributors()
+	else:
+		print "Unrecognized command."

@@ -1,4 +1,4 @@
-from sqlalchemy import String, Column, Integer
+from sqlalchemy import String, Column, Integer, Date
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -14,3 +14,4 @@ class Contributor(Base):
     vendor_name = Column(String)
     vendor_address = Column(String)
     party = Column(String)
+    contrib_date = Column(Date)
