@@ -155,6 +155,8 @@ class BOEScraper(object):
 			# 			print contrib
 			# 			self.session.commit()
 			# # print cand_name + ": " + str(href_list)
+
+			self.session.commit()
 		return
 
 	def _fix_contributor(self,c):
