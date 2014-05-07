@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
 import requests, urllib, sys
-from models import Contributor
+from models import Contributor, Committee
 from datetime import datetime
 
 from sqlalchemy import create_engine
@@ -38,14 +38,8 @@ class BOEScraper(object):
 			soup = BeautifulSoup(resp.text)
 			td_list = soup.findAll('td',{'class':'tdCandDetailCommitteeName'})
 			for td in td_list:
-				yield td.find('a').text, td.find('a')['href']
+				yield td.find('a').text, int(td.find('a')['href'].lower().split('?id=')[-1])
 		return
-
-	# [...]
-	# [0] --> scrape(0)
-	# [1] --> scrape(1)
-
-	# [0,1,2,3,4,...]
 
 	def parse_contrib_page(self,from_yr,to_yr,_from_month,_from_day):
 		day = _from_day
@@ -70,7 +64,12 @@ class BOEScraper(object):
 				for td in row.findAll('td'):
 					try:
 						print td['class']
-						contrib_obj[' '.join(td['class'])] = td.text.rstrip('\n "\t').lstrip('\n "\t')
+						#This comparison is not working
+						if td['class'] == "tdReceivedBy":
+							print int(td.find('a')['href'].split('?ID=')[-1])
+							contrib_obj[' '.join(td['class'])] = int(td.find('a')['href'].lower().split('?id=')[-1])
+						else:
+							contrib_obj[' '.join(td['class'])] = td.text.rstrip('\n "\t').lstrip('\n "\t')
 					except Exception:
 						pass
 				if self.debug: 
@@ -122,21 +121,25 @@ class BOEScraper(object):
 		return
 
 	def scrape_contributor_party_aff(self,party):
-		def _is_in(comm_name,_contribs):
-			for contributor in _contribs:
-				if contributor and contributor.received_by:
-					if comm_name in contributor.received_by:
-						return contributor
-			return None
+		# def _is_in(comm_name,_contribs):
+		# 	for contributor in _contribs:
+		# 		if contributor and contributor.received_by:
+		# 			if comm_name in contributor.received_by:
+		# 				return contributor
+		# 	return None
 
 		links = self.scrape_candidate_links(party)
 
 		# contributors = self.session.query(Contributor).all()
 		# print contrib_by_committee_names.keys()
 
-		for comm_name, href_list in self.scrape_candidate_committees(links):
-			with open('committees.txt','a') as f:
-				f.write(comm_name + '\t\t' + str(href_list) + '\n')
+		for comm_name, comm_ID in self.scrape_candidate_committees(links):
+			comm = Committee(committee_name = comm_name,
+							committee_ID = comm_ID)
+
+			self.session.merge(comm)
+			# with open('committees.txt','a') as f:
+			# 	f.write(comm_name + '\t\t' + str(href_list) + '\n')
 			# if self.debug: print comm_name
 			# # obj = _is_in(comm_name, contributors)
 			# for idx,contrib in enumerate(contributors):

@@ -9,9 +9,17 @@ class Contributor(Base):
     id = Column(Integer, primary_key=True)
     contributed_by = Column(String)
     amount = Column(String)
-    received_by = Column(String)
+    received_by = Column(Integer)
     description = Column(String)
     vendor_name = Column(String)
     vendor_address = Column(String)
     party = Column(String)
     contrib_date = Column(Date)
+
+
+class Committee(Base):
+    __tablename__ = 'boe_democratic_committees'
+
+
+    committee_name = Column(String)
+    committee_ID = Column(Integer,primary_key = True)
