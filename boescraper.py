@@ -68,7 +68,7 @@ class BOEScraper(object):
 				for td in row.findAll('td'):
 					try:
 						print td['class']
-						
+
 						#This comparison is not working
 						if 'tdReceivedBy' in td['class'][0]:
 							print int(td.find('a')['href'].split('?id=')[-1])
@@ -169,7 +169,7 @@ class BOEScraper(object):
 			# 			self.session.commit()
 			# # print cand_name + ": " + str(href_list)
 
-			self.session.commit()
+			#self.session.commit()
 		return
 
 	def _fix_contributor(self,c):
