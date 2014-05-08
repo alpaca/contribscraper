@@ -133,7 +133,7 @@ class BOEScraper(object):
 
 		for comm_name, comm_ID in self.scrape_candidate_committees(links):
 			comm = Committee(committee_name = comm_name,
-							committee_ID = comm_ID)
+							number = comm_ID)
 
 			self.session.merge(comm)
 			# with open('committees.txt','a') as f:
