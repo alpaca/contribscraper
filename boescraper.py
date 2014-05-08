@@ -14,6 +14,7 @@ class BOEScraper(object):
 		our_engine = create_engine(db_url)
 		Session = sessionmaker(bind=our_engine)
 		self.session = Session()
+		self.sepchr = '------'
 		return
 
 	def scrape_candidate_links(self,party):
@@ -41,6 +42,9 @@ class BOEScraper(object):
 				yield td.find('a').text, int(td.find('a')['href'].lower().split('?id=')[-1])
 		return
 
+	def stripstr(self,s):
+		return s.rstrip('\n "\t').lstrip('\n "\t')
+
 	def parse_contrib_page(self,from_yr,to_yr,_from_month,_from_day):
 		day = _from_day
 		month = _from_month
@@ -55,7 +59,7 @@ class BOEScraper(object):
 			urllib.quote('%i/%i/%i' % (month,from_day,year),safe='') + "&RcvDateThru=" + urllib.quote('%i/%i/%i' % (month,day,year),safe='') + "&Archived=false&QueryType=Contrib&LinkedQuery=false&OrderBy=Last+or+Only+Name+-+A+to+Z"
 			if self.debug: print url
 			resp = requests.get(url)
-			soup = BeautifulSoup(resp.text)
+			soup = BeautifulSoup(resp.text.replace('<br/>','\n').replace('<br />','\n'))
 			row_list = soup.findAll('tr')
 			
 			for idx,row in enumerate(row_list):
@@ -65,11 +69,16 @@ class BOEScraper(object):
 					try:
 						print td['class']
 						#This comparison is not working
-						if td['class'] == "tdReceivedBy":
-							print int(td.find('a')['href'].split('?ID=')[-1])
-							contrib_obj[' '.join(td['class'])] = int(td.find('a')['href'].lower().split('?id=')[-1])
+						if 'tdReceivedBy' in td['class'][0]:
+							print int(td.find('a')['href'].split('?id=')[-1])
+							contrib_obj['tdReceivedBy'] = int(td.find('a')['href'].lower().split('?id=')[-1])
+						elif 'tdContributedBy' in td['class'][0]:
+							# import pdb; pdb.set_trace()
+							contrib_obj['tdContributedBy'] = self.stripstr(td.findAll('span')[0].text)
+							contrib_obj['address'] = self.stripstr(td.findAll('span')[1].text)
+							if self.debug: print "addr.: %s" % contrib_obj['address']
 						else:
-							contrib_obj[' '.join(td['class'])] = td.text.rstrip('\n "\t').lstrip('\n "\t')
+							contrib_obj[' '.join(td['class'])] = self.stripstr(td.text)
 					except Exception:
 						pass
 				if self.debug: 
@@ -98,6 +107,7 @@ class BOEScraper(object):
 				if obj:
 					try:
 						c = Contributor(contributed_by = obj['tdContributedBy'],
+									address = obj['address'],
 									amount = obj['tdAmount'],
 									received_by = obj['tdReceivedBy'],
 									description = obj['tdDescription'],
@@ -108,6 +118,7 @@ class BOEScraper(object):
 					except KeyError:
 						if 'tdContributedBy' in obj and 'tdAmount' in obj and 'tdReceivedBy' in obj:
 							c = Contributor(contributed_by=obj['tdContributedBy'],
+											address=obj['address'],
 											received_by=obj['tdReceivedBy'],
 											amount=obj['tdAmount'],
 											party=None)
@@ -138,6 +149,7 @@ class BOEScraper(object):
 							committee_ID = comm_ID)
 
 			self.session.merge(comm)
+		self.session.commit()
 			# with open('committees.txt','a') as f:
 			# 	f.write(comm_name + '\t\t' + str(href_list) + '\n')
 			# if self.debug: print comm_name
@@ -166,7 +178,7 @@ class BOEScraper(object):
 
 			date = chunks[1][2:]
 			c.amount = amnt
-			c.contrib_date = datetime.strptime(date,'%m/%d/%Y')
+			c.contrib_date = datetime.strptime(self.stripstr(date),'%m/%d/%Y')
 			if self.debug: print "Parsed %s into:  %s  and  %s" % (amnt_date,amnt,str(c.contrib_date))
 			return c
 
