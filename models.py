@@ -14,7 +14,7 @@ class Contributor(Base):
     vendor_name = Column(String)
     vendor_address = Column(String)
     party = Column(String)
-    address = Column(String)
+    contributor_address = Column(String)
     contrib_date = Column(Date)
 
 

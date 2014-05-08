@@ -108,7 +108,7 @@ class BOEScraper(object):
 				if obj:
 					try:
 						c = Contributor(contributed_by = obj['tdContributedBy'],
-									address = obj['address'],
+									contributor_address = obj['address'],
 									amount = obj['tdAmount'],
 									received_by = obj['tdReceivedBy'],
 									description = obj['tdDescription'],
