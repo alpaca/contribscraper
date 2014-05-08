@@ -23,4 +23,4 @@ class Committee(Base):
 
 
     committee_name = Column(String)
-    committee_ID = Column(Integer,primary_key = True)
+    number = Column(Integer,primary_key = True)

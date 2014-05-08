@@ -68,6 +68,7 @@ class BOEScraper(object):
 				for td in row.findAll('td'):
 					try:
 						print td['class']
+						
 						#This comparison is not working
 						if 'tdReceivedBy' in td['class'][0]:
 							print int(td.find('a')['href'].split('?id=')[-1])
@@ -146,7 +147,7 @@ class BOEScraper(object):
 
 		for comm_name, comm_ID in self.scrape_candidate_committees(links):
 			comm = Committee(committee_name = comm_name,
-							committee_ID = comm_ID)
+							number = comm_ID)
 
 			self.session.merge(comm)
 		self.session.commit()
@@ -167,6 +168,8 @@ class BOEScraper(object):
 			# 			print contrib
 			# 			self.session.commit()
 			# # print cand_name + ": " + str(href_list)
+
+			self.session.commit()
 		return
 
 	def _fix_contributor(self,c):
