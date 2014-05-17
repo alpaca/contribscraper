@@ -2,8 +2,6 @@ from matplotlib import pyplot as PLT
 from matplotlib import cm as CM
 from geopy.geocoders import GoogleV3
 
-import numpy as np
-
 def generate_heatmap(x,y,fname):
 	# x = y = np.linspace(-5, 5, 100)
 	# print "x: " + str(type(x))

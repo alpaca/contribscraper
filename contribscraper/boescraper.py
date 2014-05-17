@@ -9,8 +9,6 @@ from geopy import geocoders
 from sqlalchemy import create_engine
 from sqlalchemy.orm.session import sessionmaker
 
-import numpy as np
-
 class BOEScraper(object):
     def __init__(self, db_url_or_obj, base_url = "http://www.elections.il.gov/CampaignDisclosure/", debug=True):
         self.base_url = base_url
